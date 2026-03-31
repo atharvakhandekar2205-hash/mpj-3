@@ -1,0 +1,193 @@
+import java.io.*;
+import java.util.*;
+
+class InvalidBankOperationException extends Exception {
+    public InvalidBankOperationException(String msg) {
+        super(msg);
+    }
+}
+
+class Account implements Serializable {
+    private int accNo;
+    private String holderName;
+    private double balance;
+
+    public Account(int accNo, String holderName, double balance) {
+        this.accNo = accNo;
+        this.holderName = holderName;
+        this.balance = balance;
+    }
+
+    public int getAccNo() { return accNo; }
+    public double getBalance() { return balance; }
+
+    public void deposit(double amount) throws InvalidBankOperationException {
+        if (amount <= 0) throw new InvalidBankOperationException("Deposit must be positive.");
+        balance += amount;
+    }
+
+    public void withdraw(double amount) throws InvalidBankOperationException {
+        if (amount > balance) throw new InvalidBankOperationException("Insufficient balance.");
+        balance -= amount;
+    }
+
+    public String toString() {
+        return accNo + "," + holderName + "," + balance;
+    }
+
+    public static Account fromString(String data) {
+        String[] parts = data.split(",");
+        return new Account(Integer.parseInt(parts[0]), parts[1], Double.parseDouble(parts[2]));
+    }
+}
+
+class BankService {
+    private final String FILE = "bank_data.txt";
+
+    public void addAccount(Account acc) throws IOException {
+        BufferedWriter bw = new BufferedWriter(new FileWriter(FILE, true));
+        bw.write(acc.toString());
+        bw.newLine();
+        bw.close();
+    }
+
+    public List<Account> getAllAccounts() throws IOException {
+        List<Account> list = new ArrayList<>();
+        File f = new File(FILE);
+        if (!f.exists()) return list;
+
+        BufferedReader br = new BufferedReader(new FileReader(FILE));
+        String line;
+        while ((line = br.readLine()) != null) list.add(Account.fromString(line));
+        br.close();
+        return list;
+    }
+
+    public void displayAccounts() throws IOException {
+        List<Account> list = getAllAccounts();
+        if (list.isEmpty()) {
+            System.out.println("No accounts found.");
+            return;
+        }
+
+        System.out.println("\nAccNo\tName\tBalance");
+        System.out.println("--------------------------");
+        for (Account acc : list)
+            System.out.println(acc.getAccNo() + "\t" + acc.toString().split(",")[1] + "\t" + acc.getBalance());
+    }
+
+    public Account findAccount(int accNo) throws IOException {
+        for (Account acc : getAllAccounts())
+            if (acc.getAccNo() == accNo) return acc;
+        return null;
+    }
+
+    public void updateAccounts(List<Account> list) throws IOException {
+        BufferedWriter bw = new BufferedWriter(new FileWriter(FILE));
+        for (Account acc : list) {
+            bw.write(acc.toString());
+            bw.newLine();
+        }
+        bw.close();
+    }
+}
+
+public class SmartBankSystem {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        BankService service = new BankService();
+
+        while (true) {
+            System.out.println("\n===== SMART BANK MENU =====");
+            System.out.println("1. Create Account");
+            System.out.println("2. View Accounts");
+            System.out.println("3. Deposit");
+            System.out.println("4. Withdraw");
+            System.out.println("5. Exit");
+            System.out.print("Enter choice: ");
+
+            int choice = sc.nextInt();
+
+            try {
+                switch (choice) {
+                    case 1:
+                        System.out.print("Enter Account No: ");
+                        int id = sc.nextInt();
+                        System.out.print("Enter Name: ");
+                        String name = sc.next();
+                        System.out.print("Initial Deposit (>=1000): ");
+                        double amt = sc.nextDouble();
+
+                        if (amt < 1000) throw new InvalidBankOperationException("Minimum 1000 required.");
+
+                        service.addAccount(new Account(id, name, amt));
+                        System.out.println("Account Created!");
+                        break;
+
+                    case 2:
+                        service.displayAccounts();
+                        break;
+
+                    case 3:
+                        System.out.print("Enter Account No: ");
+                        int depId = sc.nextInt();
+                        List<Account> list1 = service.getAllAccounts();
+                        boolean found1 = false;
+
+                        for (Account acc : list1) {
+                            if (acc.getAccNo() == depId) {
+                                System.out.print("Enter amount: ");
+                                double damt = sc.nextDouble();
+                                acc.deposit(damt);
+                                found1 = true;
+                                break;
+                            }
+                        }
+
+                        if (!found1) System.out.println("Account not found.");
+                        else {
+                            service.updateAccounts(list1);
+                            System.out.println("Deposit successful.");
+                        }
+                        break;
+
+                    case 4:
+                        System.out.print("Enter Account No: ");
+                        int wid = sc.nextInt();
+                        List<Account> list2 = service.getAllAccounts();
+                        boolean found2 = false;
+
+                        for (Account acc : list2) {
+                            if (acc.getAccNo() == wid) {
+                                System.out.print("Enter amount: ");
+                                double wamt = sc.nextDouble();
+                                acc.withdraw(wamt);
+                                found2 = true;
+                                break;
+                            }
+                        }
+
+                        if (!found2) System.out.println("Account not found.");
+                        else {
+                            service.updateAccounts(list2);
+                            System.out.println("Withdrawal successful.");
+                        }
+                        break;
+
+                    case 5:
+                        System.out.println("Thank you!");
+                        System.exit(0);
+
+                    default:
+                        System.out.println("Invalid choice!");
+                }
+            } catch (InvalidBankOperationException e) {
+                System.out.println("Error: " + e.getMessage());
+            } catch (IOException e) {
+                System.out.println("File Error!");
+            } catch (Exception e) {
+                System.out.println("Unexpected Error!");
+                sc.nextLine();
+            }
+        }
+    }
